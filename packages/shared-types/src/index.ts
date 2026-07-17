@@ -187,3 +187,5 @@ export interface FixtureMeta {
 }
 
 export * from "./fixtures.js";
+export * from "./agent.js";
+export * from "./recommendation.js";
