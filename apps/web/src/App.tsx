@@ -10,7 +10,7 @@ import History from "@/pages/History";
 import Settings from "@/pages/Settings";
 import Replay from "@/pages/Replay";
 import GoalIntro from "@/components/GoalIntro";
-import ChromaticWaves from "@/components/originkit/ChromaticWaves";
+import GlitterWrap from "@/components/originkit/GlitterWrap";
 import { useRoute } from "@/lib/router";
 import { StoreProvider } from "@/store";
 
@@ -32,27 +32,32 @@ function Router() {
 export default function App() {
   const { parts } = useRoute();
   const isHome = parts.length === 0;
-  // Skip the kick intro when deep-linking into another page
   const [introDone, setIntroDone] = useState(!isHome);
   const showIntro = isHome && !introDone;
 
   return (
     <StoreProvider>
-      {/* Soft waves stay behind content — never bleed through solid panels */}
-      <div className="pointer-events-none fixed inset-0 z-0 opacity-45">
-        <ChromaticWaves
-          frequency={1.8}
-          speed={1.6}
-          bgColor="#fdfdfe"
-          cellSize={52}
-          gamma={11}
-          paletteBias={-6}
+      {/* Originkit GlitterWrap — soft blue starfield behind solid UI panels */}
+      <div className="pointer-events-none fixed inset-0 z-0">
+        <GlitterWrap
+          lightMode
+          particleCount={560}
+          color1="#3347e0"
+          color2="#6b7aeb"
+          color3="#aeb7f4"
+          speed={2.6}
+          density={85}
+          starSize={14}
+          focalDepth={9}
+          glitterIntensity={5}
+          trailAmount={40}
+          brightness={70}
+          background="#fdfdfe"
         />
       </div>
 
       {showIntro && <GoalIntro onDone={() => setIntroDone(true)} />}
 
-      {/* Hide the app chrome while the kick intro owns the screen */}
       <main
         className={`relative z-10 flex min-h-screen flex-col ${showIntro ? "invisible" : ""}`}
         aria-hidden={showIntro}
