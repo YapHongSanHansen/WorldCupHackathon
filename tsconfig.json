@@ -8,5 +8,7 @@
       "@wc/agent-core": ["./packages/agent-core/src/index.ts"]
     }
   },
-  "include": ["apps/*/src", "packages/*/src"]
+  "include": ["apps/*/src", "packages/*/src"],
+  "comment": "apps/web has its own Next.js tsconfig (jsx/dom); exclude it from the node workspace typecheck.",
+  "exclude": ["apps/web"]
 }

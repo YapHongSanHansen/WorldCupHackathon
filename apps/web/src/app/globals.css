@@ -1,0 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(16, 185, 129, 0.12), transparent),
+    radial-gradient(900px 500px at 0% 10%, rgba(16, 185, 129, 0.06), transparent),
+    #050b09;
+  color: #e6f2ee;
+  min-height: 100vh;
+}
+
+/* Wallet-adapter button, themed to match. */
+.wallet-adapter-button {
+  background: #059669 !important;
+  height: 38px !important;
+  border-radius: 10px !important;
+  font-family: inherit !important;
+  font-size: 13px !important;
+}
+.wallet-adapter-button:hover {
+  background: #10b981 !important;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+.live-dot { animation: pulse-dot 1.4s ease-in-out infinite; }
