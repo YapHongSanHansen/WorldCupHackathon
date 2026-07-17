@@ -151,13 +151,17 @@ export class SimulationEngine extends EventEmitter {
     await engine.load(fixtureId);
     session.loaded = true;
 
-    // Open the on-chain market for this fixture (oracle/admin side).
+    // Open the on-chain market for this fixture (oracle/admin side). The window
+    // is anchored to *now*, not the (historical) fixture kickoff time, so the
+    // program's `now >= opens_at` / `now <= closes_at` checks pass while the
+    // replay is being demoed. The mock ignores the window entirely.
     const meta = FIXTURES[fixtureId]!;
+    const openedAt = this.now();
     const market = await this.chain.ensureMarket({
       fixtureId,
       label: `${meta.homeTeam} v ${meta.awayTeam}`,
-      opensAt: meta.startTime,
-      closesAt: meta.startTime + 3 * 60 * 60 * 1000,
+      opensAt: openedAt - 60_000,
+      closesAt: openedAt + 24 * 60 * 60 * 1000,
     });
     session.marketId = market.marketId;
     return session;
