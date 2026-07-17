@@ -7,17 +7,19 @@ Practical continuation guide. Read `README.md` for the product spec and
 
 Simulation-only World Cup betting agent, built to the repo's `README.md` spec **but on
 Solana** (the spec's EVM/Hardhat/MetaMask stack was intentionally dropped — hackathon
-requires Solana). Two phases are done and verified; three remain.
+requires Solana). All five phases are built; only the real on-chain gateway is
+unverified in this environment (no Solana toolchain on PATH — see 3c below).
 
 | Phase | Status | Where |
 |---|---|---|
 | 1 — TxLINE replay engine (chain-agnostic) | ✅ done, verified | `apps/replay-engine`, `packages/shared-types` |
 | 2 — Anchor betting program + SPL WCDT | ✅ done, verified | `anchor/` |
 | 3a — Rule-based agent (`PressureEdgeV1`) + state machine | ✅ done, verified | `packages/agent-core`, `packages/shared-types` |
-| 3b — API + orchestrator + mock-chain oracle | ✅ done, verified | `apps/api` |
-| 3c — Real Solana chain gateway + web confirm/wallet | ⏳ next | `apps/api` (SolanaChainGateway), `apps/web` |
-| 4 — Telegram bot (briefing/recommend/confirm/settle) | ⏳ | `apps/api` bot |
-| 5 — Portfolio + polish + tests | ⏳ | `apps/web` |
+| 3b — API + orchestrator + mock-chain oracle | ✅ done, verified (HTTP + WS) | `apps/api` |
+| 3c — Web app (match centre / confirm / portfolio / wallet) | ✅ done, verified (build + live WS) | `apps/web` |
+| 3c — Real Solana chain gateway (`CHAIN=solana`) | ⚠️ built, not on-chain-verified | `apps/api/src/chain/solanaChain.ts` |
+| 4 — Telegram bot (briefing/recommend/confirm/settle) | ✅ done, verified (getMe @WorldcupTayBot) | `apps/api/src/bot` |
+| 5 — Portfolio + polish + tests | ✅ done (52 tests, tsc, replay:verify, next build green) | across |
 
 ## Environment / toolchain (IMPORTANT — not preinstalled)
 
@@ -48,6 +50,34 @@ npm install
 ~/.avm/bin/anchor-0.31.1 build
 ~/.avm/bin/anchor-0.31.1 test  # local validator: initialize/faucet/bet/resolve/claim
 ```
+
+### Run the full demo stack (mock chain — no validator needed)
+
+```bash
+npm install                                  # workspace root (installs api + web deps too)
+
+# Terminal 1 — API + Socket.IO + Telegram bot (bot auto-starts if TELEGRAM_BOT_TOKEN in .env.local)
+PORT=4000 npx tsx apps/api/src/server.ts
+
+# Terminal 2 — web app
+cd apps/web && npm run dev                   # http://localhost:3000
+```
+
+Then: open the web app → **Start** a fixture (try 30×) → wait for a `PressureEdgeV1`
+recommendation card → **Confirm** to place a simulated on-chain bet → let the match finish
+→ the oracle resolves and the bet settles → **Claim** a winner in the Portfolio. The Telegram
+bot pushes the same recommendations with Confirm/Skip buttons + a `/confirm/[id]` deep link.
+
+Fast headless walk-through (no browser): `POST /api/fixtures/:id/replay {"action":"step"}` to
+advance to the next recommendation, `POST /api/recommendations/:id/confirm`, step to the end,
+then `POST /api/recommendations/:id/claim`.
+
+### Real chain (`CHAIN=solana`) — built, not yet on-chain-verified here
+
+Deploy + `initialize` the program (see `anchor/tests/betting-market.ts` for the canonical
+init/faucet/bet/resolve/claim flow), fund the role keypairs, set `PROGRAM_ID`, `SOLANA_RPC_URL`,
+`ORACLE_KEYPAIR_PATH` (+ optional `ADMIN_KEYPAIR_PATH`/`BETTOR_KEYPAIR_PATH`), then start the API
+with `CHAIN=solana`. The orchestrator is unchanged — only the `ChainGateway` swaps.
 
 ## Program facts (Phase 2)
 
@@ -99,11 +129,26 @@ defaulting to that path. Fixtures: 18209181 (FRA-MAR 2-0), 18213979 (1-2 ET), 18
    `/api/preferences`, `/api/faucet`, `/api/portfolio`; Socket.IO streams `state|recommendation|bet|
    settlement|portfolio`. Run: `PORT=4000 npx tsx apps/api/src/server.ts`. Verified end-to-end over
    HTTP (step→confirm→settle→claim). 52 vitest tests total; `tsc` green.
-3. **Real Solana gateway** (`apps/api`): implement `SolanaChainGateway implements ChainGateway`
-   using `@coral-xyz/anchor` — derive PDAs, oracle keypair signs `resolve_market`, connected wallet
-   signs `place_bet`/`claim`. Swap it in `server.ts` behind `SOLANA_CLUSTER`/`PROGRAM_ID` env.
-4. **Web** (`apps/web`): Next.js + `@solana/wallet-adapter` (Phantom) — connect, faucet, match centre
-   (subscribe to the Socket.IO stream), `/confirm/[id]` signing, portfolio.
-5. **Telegram** (Phase 4, token already in `.env.local`) and **portfolio/polish/tests** (Phase 5) follow.
+3. ✅ **Real Solana gateway** (`apps/api/src/chain/solanaChain.ts`) — BUILT (commit `f3d38a7`).
+   `SolanaChainGateway implements ChainGateway` via `@coral-xyz/anchor` (bundled IDL + type);
+   derives config/mint/market/bet PDAs + treasury ATA; admin opens markets, oracle signs
+   `resolve_market`, a server-held bettor keypair signs `place_bet`/`claim`. Selected by `CHAIN=solana`
+   in `server.ts`; mock stays default. ⚠️ **Not yet run on a live validator here** (no Solana
+   toolchain on PATH) — see the "Real chain" runbook above.
+4. ✅ **Web** (`apps/web`) — DONE (commit `b2ee14c`). Next.js App Router + Tailwind + wallet-adapter
+   (Wallet Standard auto-detect — no native hardware-wallet deps). Match centre (live via Socket.IO),
+   `/confirm/[id]`, portfolio, faucet, Phantom connect. `next build` + live-WS verified.
+5. ✅ **Telegram** (`apps/api/src/bot`) — DONE (commit `947a095`). grammy bot in-process on the
+   orchestrator; /start, /briefing, /portfolio, inline Confirm/Skip + web deep-link, settlement
+   messages. Auto-starts with `TELEGRAM_BOT_TOKEN`. getMe → @WorldcupTayBot.
+
+### Genuinely remaining
+
+- **On-chain verification of `CHAIN=solana`**: deploy to localnet/devnet, `initialize`, fund roles,
+  and drive the API against it (the mock path already proves the orchestration; this proves the
+  real signatures). Follow the runbook above.
+- **Per-user wallets**: the MVP is single-wallet (`SIM_WALLET`). Real multi-user needs a wallet→user
+  map + browser-side signing for `place_bet`/`claim` (the web wallet connect is already wired).
+- Optional: persistence (spec §17 DB) instead of in-memory stores; richer analytics on Portfolio.
 
 Gate each phase through no-mistakes.
